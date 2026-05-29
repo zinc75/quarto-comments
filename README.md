@@ -16,8 +16,6 @@ project:
     - comments
 ```
 
-IMPORTANT: You are not done yet! See the **Configuration** section below for additional setup steps required for PDF output.
-
 ## Screenshot
 
 Here are sample renderings of the same document with comments in both HTML and PDF formats:
@@ -55,38 +53,27 @@ Project-level options live under the `comments` key. They can override extension
 ```yaml
 ---
 title: "My Document"
-validate-yaml: false  # Required for Quarto 1.8+ to accept custom comments key
 format:
   html: default
   pdf:
-    include-in-header:  # Required for PDF output
-      text: |
-        \usepackage{xcolor}
-        \usepackage{todonotes}
-        \usepackage{emoji}
     include-before-body:  # Optional: add list of comments at document start
       text: |
         \listoftodos
-comments:
-  enabled: true      # toggle comments globally
-  show_author: true  # hide author labels when false
-  authors:
-    vg:
-      name: "Vincent"
-      color_html: "#0072B2"        # Hex color for HTML
-      color_latex: "blue!20"       # xcolor spec for LaTeX
-    cg:
-      name: "Clara"
-      color_html: "#D55E00"        # Hex color for HTML
-      color_latex: "orange!30"     # xcolor spec for LaTeX
+extensions:
+  quarto-comments:
+    enabled: true      # toggle comments globally
+    show_author: true  # hide author labels when false
+    authors:
+      vg:
+        name: "Vincent"
+        color_html: "#0072B2"        # Hex color for HTML
+        color_latex: "blue!20"       # xcolor spec for LaTeX
+      cg:
+        name: "Clara"
+        color_html: "#D55E00"        # Hex color for HTML
+        color_latex: "orange!30"     # xcolor spec for LaTeX
 ---
 ```
-
-### Required Settings
-
-**YAML Validation**: Quarto 1.8+ enforces strict YAML validation. Add `validate-yaml: false` to your document frontmatter to allow the custom `comments` configuration key.
-
-**PDF/LaTeX Setup**: For PDF output, you must manually include the required LaTeX packages in your document's `include-in-header` section (shown above). Due to Quarto extension limitations, these packages cannot be injected automatically by the extension.
 
 ### Optional Settings
 
@@ -105,7 +92,7 @@ comments:
 ### PDF / LaTeX
 
 - Comments render via the [`todonotes`](https://ctan.org/pkg/todonotes) package; inline comments use `\todo[inline]{...}`.
-- Requires manual setup of `\usepackage{xcolor}`, `\usepackage{todonotes}`, and `\usepackage{emoji}` in your document's `include-in-header` section (see Configuration above).
+- Required LaTeX packages (`xcolor`, `todonotes`, `fontawesome5`) are automatically injected by the extension — no manual `include-in-header` needed.
 - Author-specific colours are defined dynamically. Hex colours are converted to `\definecolor`.
 - Base layout hints (margin width, default todo styling) live in `_extensions/comments/assets/comments.sty`.
 - **List of Comments**: To generate a clickable table of contents-style list of all margin comments at the beginning of your PDF document, add `\listoftodos` to your `include-before-body` section (see example in Configuration above). Inline comments are excluded from the list.

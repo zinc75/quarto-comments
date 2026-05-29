@@ -5,6 +5,8 @@ quarto-required: ">=1.5.0"
 metadata-keys:
   - comments
 contributes:
+  filters:
+    - inject-fa.lua
   shortcodes:
     - comment
     - todo
@@ -14,6 +16,8 @@ contributes:
     html:
       css:
         - assets/comments.css
+    pdf:
+      include-in-header: assets/latex-packages.tex
   project:
     resources:
       - assets/comments.sty

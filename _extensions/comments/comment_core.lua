@@ -31,17 +31,17 @@ local CALLOUT_VARIANTS = {
 }
 
 local COMMENT_ICONS = {
-  comment = "💬",  -- speech bubble
-  todo = "📝",     -- memo
-  note = "📌",     -- pushpin
-  question = "❓", -- question mark
+  comment  = '<i class="fa-solid fa-comment"></i>',
+  todo     = '<i class="fa-solid fa-pen-to-square"></i>',
+  note     = '<i class="fa-solid fa-thumbtack"></i>',
+  question = '<i class="fa-solid fa-circle-question"></i>',
 }
 
-local LATEX_EMOJI_COMMANDS = {
-  comment = "\\emoji{speech-balloon}",
-  todo = "\\emoji{memo}",
-  note = "\\emoji{pushpin}",
-  question = "\\emoji{red-question-mark}",
+local LATEX_FA_ICONS = {
+  comment  = "\\faComment{}",
+  todo     = "\\faEdit{}",
+  note     = "\\faThumbtack{}",
+  question = "\\faQuestionCircle{}",
 }
 
 local function sanitize_class(value)
@@ -131,7 +131,7 @@ local function get_config(meta)
     authors = {},
   }
 
-  local config_meta = meta and meta.comments
+  local config_meta = meta and meta.extensions and meta.extensions["quarto-comments"]
   if not config_meta then
     return config
   end
@@ -286,6 +286,7 @@ local function build_html_inline(comment_type, comment_text, author, html_color,
   if html_color then
     local style_parts = {
       "--comment-color: " .. html_color,
+      "color: " .. html_color,
       "border: 1px solid " .. html_color,
       "background: color-mix(in srgb, " .. html_color .. " 15%, #ffffff 85%)",
       "padding: 0.1rem 0.45rem",
@@ -308,9 +309,8 @@ local function build_html_inline(comment_type, comment_text, author, html_color,
 
   local content = pandoc.List()
 
-  -- Add emoji icon
-  local icon_emoji = COMMENT_ICONS[comment_type] or COMMENT_ICONS.comment
-  content:insert(pandoc.Str(icon_emoji .. " "))
+  local icon_html = COMMENT_ICONS[comment_type] or COMMENT_ICONS.comment
+  content:insert(pandoc.RawInline("html", icon_html .. " "))
 
   local show_author = config.show_author and author and author.name and author.name ~= ""
   if show_author then
@@ -354,16 +354,13 @@ local function build_html_block(comment_type, comment_text, author, html_color, 
     callout_attributes["data-comment-author-name"] = author.name
   end
 
-  -- Build title text with emoji
-  local icon_emoji = COMMENT_ICONS[comment_type] or COMMENT_ICONS.comment
-  local title_text = icon_emoji .. " "
-
+  local icon_html = COMMENT_ICONS[comment_type] or COMMENT_ICONS.comment
   local show_author = config.show_author and author and author.name and author.name ~= ""
-  if show_author then
-    title_text = title_text .. author.name
-  else
-    title_text = title_text .. type_label(comment_type)
-  end
+  local label_text = show_author and author.name or type_label(comment_type)
+
+  local title_inlines = pandoc.List()
+  title_inlines:insert(pandoc.RawInline("html", icon_html))
+  title_inlines:insert(pandoc.Str(" " .. label_text))
 
   local title_style = ""
   if html_color then
@@ -371,7 +368,7 @@ local function build_html_block(comment_type, comment_text, author, html_color, 
   end
 
   local title_container = pandoc.Div(
-    { pandoc.Plain({ pandoc.Str(title_text) }) },
+    { pandoc.Plain(title_inlines) },
     pandoc.Attr("", { "callout-title-container", "flex-fill" }, { style = title_style })
   )
 
@@ -416,8 +413,9 @@ local function build_latex(comment_type, comment_text, author, inline, config)
 
   local pieces = {}
 
-  -- Add emoji icon
-  local emoji_cmd = LATEX_EMOJI_COMMANDS[comment_type] or LATEX_EMOJI_COMMANDS.comment
+  local icon_color = latex_color:match("^([^!]+)") or latex_color
+  local fa_cmd = LATEX_FA_ICONS[comment_type] or LATEX_FA_ICONS.comment
+  local emoji_cmd = "\\textcolor{" .. icon_color .. "}{" .. fa_cmd .. "}"
   table.insert(pieces, emoji_cmd .. " ")
 
   local show_author = config.show_author and author and author.name and author.name ~= ""
