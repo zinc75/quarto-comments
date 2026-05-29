@@ -1,6 +1,15 @@
 local utils = {}
 
 local ok_quarto, quarto = pcall(require, "quarto")
+if not ok_quarto then
+  -- require() shadows the global; fall back to it when available
+  quarto = _G["quarto"] or {}
+  ok_quarto = type(quarto) == "table"
+end
+
+local FA_CSS_LINK = '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />'
+local _fa_css_injected = false
+local _listoftodos_injected = false
 
 local VALID_TYPES = {
   comment = true,
@@ -22,6 +31,39 @@ local DEFAULT_LATEX_COLORS = {
   note = "blue!20",
   question = "cyan!20",
 }
+
+-- Bootstrap 5 base (-500) colors, used for auto-assigned author colors.
+-- These are used as-is for HTML accents; in LaTeX they are registered via
+-- \definecolor and then diluted with !40!white for the note background.
+local PALETTE_HEX = {
+  "0d6efd",  -- blue
+  "6610f2",  -- indigo
+  "6f42c1",  -- purple
+  "d63384",  -- pink
+  "dc3545",  -- red
+  "fd7e14",  -- orange
+  "ffc107",  -- yellow
+  "198754",  -- green
+  "20c997",  -- teal
+  "0dcaf0",  -- cyan
+}
+
+-- Track which author color names have been declared in the LaTeX preamble
+local _latex_colors_declared = {}
+
+local function hash_string(s)
+  local sum = 0
+  for i = 1, #s do
+    sum = sum + string.byte(s, i)
+  end
+  return sum
+end
+
+local function auto_color_hex(author)
+  local seed = author.name and author.name ~= "" and author.name or author.id or "x"
+  local idx = (hash_string(seed) % #PALETTE_HEX) + 1
+  return PALETTE_HEX[idx]
+end
 
 local CALLOUT_VARIANTS = {
   comment = "callout-note",
@@ -128,6 +170,7 @@ local function get_config(meta)
   local config = {
     enabled = true,
     show_author = true,
+    show_list = false,
     authors = {},
   }
 
@@ -148,6 +191,13 @@ local function get_config(meta)
     local show_author = meta_to_bool(config_meta.show_author)
     if show_author ~= nil then
       config.show_author = show_author
+    end
+  end
+
+  if config_meta.show_list ~= nil then
+    local show_list = meta_to_bool(config_meta.show_list)
+    if show_list ~= nil then
+      config.show_list = show_list
     end
   end
 
@@ -198,16 +248,43 @@ local function resolve_html_color(comment_type, author)
   if author and author.color_html and author.color_html ~= "" then
     return author.color_html
   end
+  if author then
+    return "#" .. auto_color_hex(author)
+  end
   return DEFAULT_HTML_COLORS[comment_type] or DEFAULT_HTML_COLORS.comment
 end
 
+-- Returns an xcolor-compatible color name for use in LaTeX.
+-- For named/tint specs (e.g. "blue!20") the value is returned as-is.
+-- For auto-assigned authors a unique color is declared via \definecolor and
+-- its name is returned; hex values from the YAML config are treated the same way.
 local function resolve_latex_color(comment_type, author)
-  if author and author.color_latex and author.color_latex ~= "" then
-    -- Only use if it's not a hex color (hex colors start with #)
-    if not author.color_latex:match("^#") then
-      return author.color_latex
+  local hex = nil
+  if author then
+    if author.color_latex and author.color_latex ~= "" then
+      if not author.color_latex:match("^#") then
+        -- Named xcolor spec — use directly
+        return author.color_latex
+      else
+        hex = author.color_latex:sub(2)  -- strip leading #
+      end
+    else
+      hex = auto_color_hex(author)
     end
   end
+
+  if hex then
+    local color_name = "cmt-" .. (author.id or "x")
+    if not _latex_colors_declared[color_name] then
+      _latex_colors_declared[color_name] = true
+      pcall(function()
+        quarto.doc.include_text("in-header",
+          "\\definecolor{" .. color_name .. "}{HTML}{" .. hex .. "}\n")
+      end)
+    end
+    return color_name
+  end
+
   return DEFAULT_LATEX_COLORS[comment_type] or DEFAULT_LATEX_COLORS.comment
 end
 
@@ -294,6 +371,7 @@ local function build_html_inline(comment_type, comment_text, author, html_color,
       "font-size: 0.9em",
       "display: inline-block",
       "vertical-align: baseline",
+      "margin: 0 0.25em",
     }
     attributes.style = table.concat(style_parts, "; ") .. ";"
   end
@@ -372,9 +450,13 @@ local function build_html_block(comment_type, comment_text, author, html_color, 
     pandoc.Attr("", { "callout-title-container", "flex-fill" }, { style = title_style })
   )
 
+  local header_style = ""
+  if html_color then
+    header_style = "background: color-mix(in srgb, " .. html_color .. " 15%, transparent) !important;"
+  end
   local header = pandoc.Div(
     { title_container },
-    pandoc.Attr("", { "callout-header", "d-flex", "align-content-center" })
+    pandoc.Attr("", { "callout-header", "d-flex", "align-content-center" }, { style = header_style })
   )
 
   local body = pandoc.Div(
@@ -403,7 +485,13 @@ local function build_latex(comment_type, comment_text, author, inline, config)
     table.insert(options, "inline")
   end
   if latex_color and latex_color ~= "" then
-    table.insert(options, "color=" .. latex_color)
+    -- For plain color names (auto-assigned via \definecolor), dilute the
+    -- background so the note stays light; user-defined tints (e.g. "blue!20")
+    -- are used as-is since they already carry the desired opacity.
+    local bg_color = latex_color:find("!", 1, true)
+      and latex_color
+      or  (latex_color .. "!20!white")
+    table.insert(options, "color=" .. bg_color)
   end
   local option_string = ""
   table.insert(options, "size=\\footnotesize")
@@ -413,6 +501,7 @@ local function build_latex(comment_type, comment_text, author, inline, config)
 
   local pieces = {}
 
+  -- Icon: use full (or base) color for contrast against the diluted background
   local icon_color = latex_color:match("^([^!]+)") or latex_color
   local fa_cmd = LATEX_FA_ICONS[comment_type] or LATEX_FA_ICONS.comment
   local emoji_cmd = "\\textcolor{" .. icon_color .. "}{" .. fa_cmd .. "}"
@@ -482,13 +571,35 @@ function utils.render(args, kwargs, meta, forced_type)
   if is_html_format() then
     local html_color = resolve_html_color(comment_type, author)
     if inline then
-      return build_html_inline(comment_type, comment_text, author, html_color, config)
+      local result = build_html_inline(comment_type, comment_text, author, html_color, config)
+      if not _fa_css_injected then
+        _fa_css_injected = true
+        result.content:insert(1, pandoc.RawInline("html", FA_CSS_LINK))
+      end
+      return result
     else
-      return build_html_block(comment_type, comment_text, author, html_color, config)
+      local result = build_html_block(comment_type, comment_text, author, html_color, config)
+      if not _fa_css_injected then
+        _fa_css_injected = true
+        result.content:insert(1, pandoc.RawBlock("html", FA_CSS_LINK))
+      end
+      return result
     end
   end
 
   if is_latex_format() then
+    pcall(function()
+      quarto.doc.use_latex_package("xcolor")
+      quarto.doc.use_latex_package("todonotes")
+      quarto.doc.use_latex_package("fontawesome5")
+      if config.show_list and not _listoftodos_injected then
+        _listoftodos_injected = true
+        -- Guard against multiple injections (one per shortcode type loaded)
+        quarto.doc.include_text("before-body",
+          "\\makeatletter\\ifx\\@qtc@listoftodos@done\\undefined" ..
+          "\\gdef\\@qtc@listoftodos@done{}\\listoftodos\\fi\\makeatother\n")
+      end
+    end)
     return build_latex(comment_type, comment_text, author, inline, config)
   end
 
