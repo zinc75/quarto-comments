@@ -10,6 +10,7 @@ end
 local FA_CSS_LINK = '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />'
 local _fa_css_injected = false
 local _listoftodos_injected = false
+local _latex_tdo_cleared = false
 
 local VALID_TYPES = {
   comment = true,
@@ -537,7 +538,8 @@ function utils.render(args, kwargs, meta, forced_type)
     comment_type = "comment"
   end
 
-  local author_id = kwargs.author and tostring(kwargs.author) or nil
+  local author_id = kwargs.author and meta_to_string(kwargs.author):gsub("[^%w%-_]", "") or nil
+  if author_id == "" then author_id = nil end
   local inline = parse_bool(kwargs.inline)
 
   -- Get configuration from meta
@@ -592,6 +594,18 @@ function utils.render(args, kwargs, meta, forced_type)
       quarto.doc.use_latex_package("xcolor")
       quarto.doc.use_latex_package("todonotes")
       quarto.doc.use_latex_package("fontawesome5")
+      if not _latex_tdo_cleared then
+        _latex_tdo_cleared = true
+        -- Cross-platform stale .tdo removal (shell commands are not portable)
+        if pandoc.system then
+          local ok, files = pcall(pandoc.system.list_directory, ".")
+          if ok and files then
+            for _, f in ipairs(files) do
+              if f:match("%.tdo$") then os.remove(f) end
+            end
+          end
+        end
+      end
       if config.show_list and not _listoftodos_injected then
         _listoftodos_injected = true
         -- Guard against multiple injections (one per shortcode type loaded)

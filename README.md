@@ -46,6 +46,8 @@ Use the `comment` shortcode or one of its aliases directly inside your document:
 
 All aliases (`todo`, `note`, `question`) map to the same underlying logic and set the default `type`.
 
+> **Note:** The `author` value must not start with a space — `author="vg"` and `author="v g"` both work (internal spaces are ignored), but `author=" vg"` (leading space) is silently dropped by Quarto's shortcode parser before the extension sees it.
+
 ## Configuration
 
 Options live under the `extensions.quarto-comments` key in the document front matter:
@@ -70,6 +72,8 @@ extensions:
 ```
 
 ### Author colours
+
+Authors do not need to be declared in the configuration. Any identifier used in a shortcode (`author="jd"`) automatically receives a distinct colour derived from that value. Declaring an author under `authors:` lets you attach a display name and optionally override the colour — nothing more.
 
 Each author is automatically assigned a distinct colour drawn from the Bootstrap 5 palette, derived from their name. No manual colour configuration is required.
 
