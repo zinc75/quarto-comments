@@ -107,7 +107,7 @@ authors:
 
 ### Other Formats
 
-Formats without specialised handling fall back to a plain-text representation:
+For formats other than HTML and PDF/LaTeX (e.g. `.docx`, EPUB, Markdown), comments fall back to a plain-text representation rather than disappearing silently:
 
 ```
 TODO (vg): Need to expand this section.
