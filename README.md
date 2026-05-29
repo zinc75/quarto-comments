@@ -37,69 +37,77 @@ Use the `comment` shortcode or one of its aliases directly inside your document:
 
 ### Arguments
 
-| Argument    | Type                          | Description                                           |
-|-------------|-------------------------------|-------------------------------------------------------|
-| positional  | string                        | Required comment text                                 |
-| `author`    | string                        | Matches a key defined in the configuration            |
-| `type`      | comment \| todo \| note \| question | Controls styling for iconography and colours     |
-| `inline`    | boolean                       | Forces inline rendering instead of a margin callout   |
+| Argument    | Type                                    | Description                                         |
+|-------------|-----------------------------------------|-----------------------------------------------------|
+| positional  | string                                  | Required comment text                               |
+| `author`    | string                                  | Matches a key defined in the configuration          |
+| `type`      | comment \| todo \| note \| question     | Controls styling for iconography and colours        |
+| `inline`    | boolean                                 | Forces inline rendering instead of a margin callout |
 
 All aliases (`todo`, `note`, `question`) map to the same underlying logic and set the default `type`.
 
 ## Configuration
 
-Project-level options live under the `comments` key. They can override extension defaults:
+Options live under the `extensions.quarto-comments` key in the document front matter:
 
 ```yaml
 ---
 title: "My Document"
 format:
   html: default
-  pdf:
-    include-before-body:  # Optional: add list of comments at document start
-      text: |
-        \listoftodos
+  pdf: default
 extensions:
   quarto-comments:
-    enabled: true      # toggle comments globally
-    show_author: true  # hide author labels when false
+    enabled: true       # toggle comments globally (default: true)
+    show_author: true   # show author labels (default: true)
+    show_list: true     # prepend a list of all comments in PDF (default: false)
     authors:
       vg:
         name: "Vincent"
-        color_html: "#0072B2"        # Hex color for HTML
-        color_latex: "blue!20"       # xcolor spec for LaTeX
       cg:
         name: "Clara"
-        color_html: "#D55E00"        # Hex color for HTML
-        color_latex: "orange!30"     # xcolor spec for LaTeX
 ---
 ```
 
-### Optional Settings
+### Author colours
 
-- When `enabled: false`, all comment shortcodes are stripped from the output.
-- Authors without defined colours fall back to sensible defaults per comment type.
+Each author is automatically assigned a distinct colour drawn from the Bootstrap 5 palette, derived from their name. No manual colour configuration is required.
+
+To override, add `color_html` (CSS hex) and/or `color_latex` (xcolor spec) to the author entry:
+
+```yaml
+authors:
+  vg:
+    name: "Vincent"
+    color_html: "#0072B2"
+    color_latex: "blue!20"
+```
+
+### Other settings
+
+- `enabled: false` strips all comment shortcodes from the output.
+- `show_author: false` hides author labels on all comments.
 - Anonymous comments (no `author`) automatically suppress author labels.
 
 ## Output Behaviour
 
 ### HTML
 
-- Margin callouts styled as standard Quarto callouts, colourised per author or comment type.
+- Margin callouts styled as standard Quarto callouts, colourised per author.
+- Icons use [Font Awesome 6](https://fontawesome.com/), injected automatically — no manual `include-in-header` needed.
 - Inline comments render as compact badges that sit within text runs.
-- Custom CSS is bundled (`_extensions/comments/assets/comments.css`) and injected automatically.
 
 ### PDF / LaTeX
 
 - Comments render via the [`todonotes`](https://ctan.org/pkg/todonotes) package; inline comments use `\todo[inline]{...}`.
-- Required LaTeX packages (`xcolor`, `todonotes`, `fontawesome5`) are automatically injected by the extension — no manual `include-in-header` needed.
-- Author-specific colours are defined dynamically. Hex colours are converted to `\definecolor`.
-- Base layout hints (margin width, default todo styling) live in `_extensions/comments/assets/comments.sty`.
-- **List of Comments**: To generate a clickable table of contents-style list of all margin comments at the beginning of your PDF document, add `\listoftodos` to your `include-before-body` section (see example in Configuration above). Inline comments are excluded from the list.
+- Required LaTeX packages (`xcolor`, `todonotes`, `fontawesome5`) are injected automatically — no manual `include-in-header` needed.
+- Icons use [Font Awesome 5](https://ctan.org/pkg/fontawesome5), compatible with pdflatex, xelatex, and lualatex.
+- Author colours are defined dynamically via `\definecolor`.
+- **List of comments**: set `show_list: true` in the configuration to prepend a clickable list of all margin comments to the PDF. Inline comments are excluded from the list.
 
 ### Other Formats
 
-Formats without specialised handling fall back to a simple textual representation such as:
+Formats without specialised handling fall back to a plain-text representation:
 
 ```
 TODO (vg): Need to expand this section.
@@ -107,10 +115,10 @@ TODO (vg): Need to expand this section.
 
 ## Minimal Example
 
-A runnable example document is included at `example.qmd`. From the repository root you can render it to both HTML and PDF:
+A runnable example document is included at `example.qmd`. From the repository root:
 
 ```bash
 quarto render example.qmd --to html,pdf
 ```
 
-The example demonstrates author configuration, margin callouts, and inline comments. Use it as a starting point when wiring the extension into your own projects.
+The example demonstrates author configuration, automatic colour assignment, margin callouts, inline comments, and the comment list. Use it as a starting point when wiring the extension into your own projects.
