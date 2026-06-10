@@ -5,7 +5,7 @@ The **Quarto Comments** extension adds collaboration-friendly annotations to Qua
 ## Installation
 
 ```bash
-quarto add vgreg/quarto-comments
+quarto add zinc75/quarto-comments
 ```
 
 Then enable the extension for your project:
