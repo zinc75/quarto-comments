@@ -1,3 +1,14 @@
+> ⚠️ **This repository is archived.**
+>
+> - **Original source**: Fork of [`vgreg/quarto-comments`](https://github.com/vgreg/quarto-comments)
+> - **Enhancements added**: Font Awesome 6 icons, improved author color handling, and various bug fixes
+> - **Successor**: Development has moved to [`quarto-proofread-comments`](https://github.com/zinc75/quarto-proofread-comments) — a more powerful extension with advanced collaborative features
+>
+> **For new projects**: Please use [`quarto-proofread-comments`](https://github.com/zinc75/quarto-proofread-comments).
+> This repository remains public as a reference for legacy projects.
+
+
+
 # Quarto Comments Extension
 
 The **Quarto Comments** extension adds collaboration-friendly annotations to Quarto documents. Authors can insert inline notes, to-dos, and discussion points that render as margin callouts in HTML outputs and as [`todonotes`](https://ctan.org/pkg/todonotes) in PDF/LaTeX builds. Comments can be toggled globally and customised per author or reviewer.
